@@ -88,6 +88,8 @@ typedef struct utm_t {
 typedef struct keystone_enclave_t 
 {
   unsigned int eid;
+  unsigned int sig;
+  unsigned int sig_cause;
   struct utm_t* utm;
   struct epm_t* epm;
 } enclave_t;

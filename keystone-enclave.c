@@ -73,6 +73,10 @@ enclave_t* create_enclave(unsigned long min_pages)
   enclave->utm = NULL;
   enclave->epm = NULL;
 
+  /* Signal handeling for Asylo compatability. */
+  enclave->sig = 0;
+  enclave->sig_cause = 0;
+
   /* allocate contiguous memory */
 
 #ifdef CONFIG_CMA
