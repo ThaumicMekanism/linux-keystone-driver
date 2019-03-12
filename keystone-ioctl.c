@@ -163,7 +163,7 @@ int keystone_run_enclave(struct file* filp, unsigned long arg)
   while(ret == ENCLAVE_INTERRUPTED)
   {
     keystone_handle_interrupts();
-    ret = SBI_CALL_3(SBI_SM_RESUME_ENCLAVE, enclave->eid, enclave->sig.num, enclave->sig.cause);
+    ret = SBI_CALL_3(SBI_SM_RESUME_ENCLAVE, enclave->eid, enclave->sig.signum, enclave->sig.code);
   }
   
   /* clear the enclave signal. */
@@ -186,11 +186,11 @@ int keystone_resume_enclave(struct file* filp, unsigned long arg)
     return -EINVAL;
   }
 
-  ret = SBI_CALL_3(SBI_SM_RESUME_ENCLAVE, enclave->eid, enclave->sig.signum, enclave->sig.cause);
+  ret = SBI_CALL_3(SBI_SM_RESUME_ENCLAVE, enclave->eid, enclave->sig.signum, enclave->sig.code);
   while(ret == ENCLAVE_INTERRUPTED)
   {
     keystone_handle_interrupts();
-    ret = SBI_CALL_3(SBI_SM_RESUME_ENCLAVE, enclave->eid, enclave->sig.signum, enclave->sig.cause);
+    ret = SBI_CALL_3(SBI_SM_RESUME_ENCLAVE, enclave->eid, enclave->sig.signum, enclave->sig.code);
   }
   /* clear the enclave signal. */
   clear_signal(&enclave->sig);
