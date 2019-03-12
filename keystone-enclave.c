@@ -74,8 +74,8 @@ enclave_t* create_enclave(unsigned long min_pages)
   enclave->epm = NULL;
 
   /* Signal handeling for Asylo compatability. */
-  enclave->sig = 0;
-  enclave->sig_cause = 0;
+  spin_lock_init(&(enclave->sig_lock));
+  clear_signal(&(enclave->sig_lock));
 
   /* allocate contiguous memory */
 
@@ -150,4 +150,34 @@ enclave_t* get_enclave_by_id(unsigned int ueid)
   enclave = idr_find(&idr_enclave, ueid); 
   spin_unlock_bh(&idr_enclave_lock);
   return enclave;
+}
+
+/* Takes in an enclave ueid and a pointer to a signal and sets a signal if there is not a signal
+ * returns 0 if succeeds and anything else if the signal cannot be set.
+ */
+int signal_enclave(unsigned int ueid, struct signal_t* sig)
+{
+  enclave_t* enclave = get_enclave_by_id(ueid);
+  if (encalve && sig) {
+    spin_lock_bh(&((enclave.sig)->sig_lock));
+    int retcode = 1;
+    if (!((enclave->sig).signum)) {
+      (enclave->sig).signum = sig->signum;
+      (enclave->sig).code = sig->code;
+      retcode = 0;
+    }
+    spin_unlock_bh(&((enclave.sig)->sig_lock));
+    return retcode;
+  }
+  return 1;
+}
+
+void clear_signal(struct signal_t* sig)
+{
+  if (sig) {
+    spin_lock_bh(&(sig->sig_lock));
+    sig->signum = 0;
+    sig->code = 0;
+    spin_unlock_bh(&(sig->sig_lock));
+  }
 }

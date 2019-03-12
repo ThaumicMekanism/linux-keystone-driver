@@ -84,12 +84,16 @@ typedef struct utm_t {
   unsigned long order;
 } utm_t;
 
+typedef struct signal_t {
+  spinlock_t sig_lock;
+  unsigned int signum;
+  unsigned int code;
+} signal_t;
 
 typedef struct keystone_enclave_t 
 {
   unsigned int eid;
-  unsigned int sig;
-  unsigned int sig_cause;
+  struct signal_t sig;
   struct utm_t* utm;
   struct epm_t* epm;
 } enclave_t;
@@ -113,6 +117,10 @@ int destroy_enclave(enclave_t* enclave);
 unsigned int enclave_idr_alloc(enclave_t* enclave);
 enclave_t* enclave_idr_remove(unsigned int ueid);
 enclave_t* get_enclave_by_id(unsigned int ueid);
+
+// Signal Handlers
+int signal_enclave(unsigned int ueid, struct signal_t* sig);
+void clear_signal(struct signal_t* sig);
 
 static inline uintptr_t  epm_satp(epm_t* epm) {
   return ((uintptr_t)epm->root_page_table >> RISCV_PGSHIFT | SATP_MODE_CHOICE);

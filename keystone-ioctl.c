@@ -163,8 +163,11 @@ int keystone_run_enclave(struct file* filp, unsigned long arg)
   while(ret == ENCLAVE_INTERRUPTED)
   {
     keystone_handle_interrupts();
-    ret = SBI_CALL_1(SBI_SM_RESUME_ENCLAVE, enclave->eid);
+    ret = SBI_CALL_3(SBI_SM_RESUME_ENCLAVE, enclave->eid, enclave->sig.num, enclave->sig.cause);
   }
+  
+  /* clear the enclave signal. */
+  clear_signal(&enclave->sig);
 
   return ret;
 }
@@ -183,15 +186,14 @@ int keystone_resume_enclave(struct file* filp, unsigned long arg)
     return -EINVAL;
   }
 
-  ret = SBI_CALL_3(SBI_SM_RESUME_ENCLAVE, enclave->eid, enclave->sig, enclave->sig_cause);
+  ret = SBI_CALL_3(SBI_SM_RESUME_ENCLAVE, enclave->eid, enclave->sig.signum, enclave->sig.cause);
   while(ret == ENCLAVE_INTERRUPTED)
   {
     keystone_handle_interrupts();
-    ret = SBI_CALL_3(SBI_SM_RESUME_ENCLAVE, enclave->eid, enclave->sig, enclave->sig_cause);
+    ret = SBI_CALL_3(SBI_SM_RESUME_ENCLAVE, enclave->eid, enclave->sig.signum, enclave->sig.cause);
   }
   /* clear the enclave signal. */
-  enclave->sig = 0;
-  enclave->sig_cause = 0;
+  clear_signal(&enclave->sig);
 
   return ret;
 }
@@ -236,5 +238,3 @@ long keystone_ioctl(struct file *filep, unsigned int cmd, unsigned long arg)
   
   return ret;
 }
-
-
