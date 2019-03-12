@@ -1,5 +1,3 @@
-DISK_IMAGE = ../busybear-linux/busybear.bin
-MOUNT_DIR = ./tmp_busybear
 DRIVER = keystone-driver.ko
 
 ifneq ($(KERNELRELEASE),)
@@ -14,16 +12,14 @@ else
 
 PWD := $(shell pwd)
 KDIR := $(PWD)/../riscv-linux/
+KEYSTONE_SDK_DIR := $(PWD)/../sdk/
 
 default:
 	$(MAKE) -C $(KDIR) ARCH=riscv SUBDIRS=$(PWD) modules
 
 copy:
-	mkdir -p $(MOUNT_DIR)
-	sudo mount $(DISK_IMAGE) $(MOUNT_DIR)
-	sudo cp $(DRIVER) $(MOUNT_DIR)/root/
-	sudo umount $(MOUNT_DIR)
-	rmdir $(MOUNT_DIR)
+	cp $(DRIVER) $(KEYSTONE_SDK_DIR)/bin/
+	cd $(KEYSTONE_SDK_DIR)/.. && make hifive
 
 
 endif
