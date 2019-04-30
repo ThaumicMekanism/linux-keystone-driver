@@ -8,6 +8,10 @@
 #include <linux/uaccess.h>
 
 int __keystone_destroy_enclave(unsigned int ueid);
+unsigned int get_eid(struct file *filep)
+{
+  return (unsigned int) filep->private_data;
+}
 
 int keystone_create_enclave(struct file *filep, unsigned long arg)
 {
@@ -30,7 +34,7 @@ int keystone_create_enclave(struct file *filep, unsigned long arg)
 }
 
 
-int keystone_finalize_enclave(unsigned long arg)
+int keystone_finalize_enclave(struct file *filep, unsigned long arg)
 {
   int ret;
   enclave_t *enclave;
@@ -39,7 +43,7 @@ int keystone_finalize_enclave(unsigned long arg)
 
   struct keystone_ioctl_create_enclave *enclp = (struct keystone_ioctl_create_enclave *) arg;
 
-  enclave = get_enclave_by_id(enclp->eid);
+  enclave = get_enclave_by_id(get_eid(filep));
   if(!enclave) {
     keystone_err("invalid enclave id\n");
     return -EINVAL;
@@ -90,14 +94,14 @@ error_destroy_enclave:
 
 }
 
-int keystone_run_enclave(unsigned long arg)
+int keystone_run_enclave(struct file *filep, unsigned long arg)
 {
   int ret = 0;
   unsigned long ueid;
   enclave_t* enclave;
   struct keystone_ioctl_run_enclave *run = (struct keystone_ioctl_run_enclave*) arg;
 
-  ueid = run->eid;
+  ueid = get_eid(filep);
   enclave = get_enclave_by_id(ueid);
 
   if(!enclave) {
@@ -116,12 +120,12 @@ int keystone_run_enclave(unsigned long arg)
   return ret;
 }
 
-int keystone_add_page(unsigned long arg)
+int keystone_add_page(struct file *filep, unsigned long arg)
 {
   int ret = 0;
   vaddr_t epm_page;
   struct addr_packed *addr = (struct addr_packed *) arg;
-  unsigned long ueid = addr->eid;
+  unsigned long ueid = get_eid(filep);
   unsigned int mode = addr->mode;
   enclave_t *enclave;
 
@@ -163,7 +167,7 @@ int keystone_add_page(unsigned long arg)
 /* This IOCTL allows user to prepare page tables prior to the actual page allocation.
  * This is needed when an enclave requires linear physical layout.
  * The user must call this before allocating pages */
-int keystone_alloc_vspace(unsigned long arg)
+int keystone_alloc_vspace(struct file *filep, unsigned long arg)
 {
   int ret = 0;
   vaddr_t va;
@@ -174,7 +178,7 @@ int keystone_alloc_vspace(unsigned long arg)
   va = enclp->vaddr;
   num_pages = PAGE_UP(enclp->size)/PAGE_SIZE;
 
-  enclave = get_enclave_by_id(enclp->eid);
+  enclave = get_enclave_by_id(get_eid(filep));
 
   if(!enclave) {
     keystone_err("invalid enclave id\n");
@@ -189,7 +193,7 @@ int keystone_alloc_vspace(unsigned long arg)
   return ret;
 }
 
-int utm_init_ioctl(struct file *filp, unsigned long arg)
+int utm_init_ioctl(struct file *filep, unsigned long arg)
 {
   int ret = 0;
   struct utm_t *utm;
@@ -197,7 +201,7 @@ int utm_init_ioctl(struct file *filp, unsigned long arg)
   struct keystone_ioctl_create_enclave *enclp = (struct keystone_ioctl_create_enclave *) arg;
   long long unsigned untrusted_size = enclp->params.untrusted_size;
 
-  enclave = get_enclave_by_id(enclp->eid);
+  enclave = get_enclave_by_id(get_eid(filep));
 
   if(!enclave) {
     keystone_err("invalid enclave id\n");
@@ -218,12 +222,12 @@ int utm_init_ioctl(struct file *filp, unsigned long arg)
   return ret;
 }
 
-int utm_alloc(unsigned long arg)
+int utm_alloc(struct file *filep, unsigned long arg)
 {
   int ret = 0;
   enclave_t *enclave;
   struct addr_packed *addr = (struct addr_packed *) arg;
-  unsigned long ueid = addr->eid;
+  unsigned long ueid = get_eid(filep);
 
   enclave = get_enclave_by_id(ueid);
 
@@ -242,7 +246,7 @@ int keystone_destroy_enclave(struct file *filep, unsigned long arg)
 {
   int ret;
   struct keystone_ioctl_create_enclave *enclp = (struct keystone_ioctl_create_enclave *) arg;
-  unsigned long ueid = enclp->eid;
+  unsigned long ueid = get_eid(filep);
   
   ret = __keystone_destroy_enclave(ueid);
   if (!ret) {
@@ -267,17 +271,20 @@ int __keystone_destroy_enclave(unsigned int ueid)
     return ret;
   }
 
+  // add synchronization here!
+  if (enclave->openctr == 0) {
+    enclave_idr_remove(ueid);
+  }
   destroy_enclave(enclave);
-  enclave_idr_remove(ueid);
 
   return 0;
 }
 
-int keystone_resume_enclave(unsigned long arg)
+int keystone_resume_enclave(struct file *filep, unsigned long arg)
 {
   int ret = 0;
   struct keystone_ioctl_run_enclave *resume = (struct keystone_ioctl_run_enclave*) arg;
-  unsigned long ueid = resume->eid;
+  unsigned long ueid = get_eid(filep);
   enclave_t* enclave;
   enclave = get_enclave_by_id(ueid);
 
@@ -316,29 +323,29 @@ long keystone_ioctl(struct file *filep, unsigned int cmd, unsigned long arg)
       ret = keystone_create_enclave(filep, (unsigned long) data);
       break;
     case KEYSTONE_IOC_ADD_PAGE:
-      ret = keystone_add_page((unsigned long) data);
+      ret = keystone_add_page(filep, (unsigned long) data);
       break;
     case KEYSTONE_IOC_ALLOC_VSPACE:
-      ret = keystone_alloc_vspace((unsigned long) data);
+      ret = keystone_alloc_vspace(filep, (unsigned long) data);
       break;
     case KEYSTONE_IOC_FINALIZE_ENCLAVE:
-      ret = keystone_finalize_enclave((unsigned long) data);
+      ret = keystone_finalize_enclave(filep, (unsigned long) data);
       break;
     case KEYSTONE_IOC_DESTROY_ENCLAVE:
       ret = keystone_destroy_enclave(filep, (unsigned long) data);
       break;
     case KEYSTONE_IOC_RUN_ENCLAVE:
-      ret = keystone_run_enclave((unsigned long) data);
+      ret = keystone_run_enclave(filep, (unsigned long) data);
       break;
     case KEYSTONE_IOC_RESUME_ENCLAVE:
-      ret = keystone_resume_enclave((unsigned long) data);
+      ret = keystone_resume_enclave(filep, (unsigned long) data);
       break;
     /* Note that following commands could have been implemented as a part of ADD_PAGE ioctl.
      * However, there was a weird bug in compiler that generates a wrong control flow
      * that ends up with an illegal instruction if we combine switch-case and if statements.
      * We didn't identified the exact problem, so we'll have these until we figure out */
     case KEYSTONE_IOC_UTM_ALLOC:
-      ret = utm_alloc((unsigned long) data);
+      ret = utm_alloc(filep, (unsigned long) data);
       break;
     case KEYSTONE_IOC_UTM_INIT:
       ret = utm_init_ioctl(filep, (unsigned long) data);
@@ -365,6 +372,8 @@ int keystone_release(struct inode *inode, struct file *file) {
     /* If eid is set to the invalid id, then we do not do anything. */
     return -EINVAL;
   }
+  //ADD synchronization here!
+  enclave->openctr--;
   if (enclave->close_on_pexit) {
     return __keystone_destroy_enclave(ueid);
   }

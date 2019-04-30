@@ -93,6 +93,7 @@ typedef struct keystone_enclave_t
   int close_on_pexit;
   struct utm_t* utm;
   struct epm_t* epm;
+  unsigned int openctr;
 } enclave_t;
 
 

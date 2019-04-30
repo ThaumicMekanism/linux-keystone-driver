@@ -51,7 +51,14 @@ int destroy_enclave(enclave_t* enclave)
     utm_destroy(utm);
     kfree(utm);
   }
-  kfree(enclave);
+  if (enclave->openctr == 0) {
+    /* We only want to deallocate an enclave when there are no longer pointers to it. */
+    kfree(enclave);
+  } else {
+    /* Since we have destroyed the epm and utm already, we should make sure they do not get accesssed again. */
+    enclave->utm = NULL;
+    enclave->epm = NULL;
+  }
   return 0;
 }
 
@@ -67,6 +74,7 @@ enclave_t* create_enclave(unsigned long min_pages)
 
   enclave->utm = NULL;
   enclave->close_on_pexit = 1;
+  enclave->openctr = 1;
 
   enclave->epm = kmalloc(sizeof(epm_t), GFP_KERNEL);
   if (!enclave->epm)
