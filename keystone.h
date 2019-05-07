@@ -60,6 +60,7 @@ void keystone_handle_interrupts(void);
 
 long keystone_ioctl(struct file* filep, unsigned int cmd, unsigned long arg);
 int keystone_release(struct inode *inode, struct file *file);
+int keystone_open(struct inode *inodep, struct file *filep);
 int keystone_mmap(struct file *filp, struct vm_area_struct *vma);
 
 struct free_page_t {
@@ -94,6 +95,7 @@ typedef struct keystone_enclave_t
   struct utm_t* utm;
   struct epm_t* epm;
   unsigned int openctr;
+  pid_t owner;
 } enclave_t;
 
 

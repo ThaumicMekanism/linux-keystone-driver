@@ -18,6 +18,11 @@ int keystone_create_enclave(struct file *filep, unsigned long arg)
   /* create parameters */
   struct keystone_ioctl_create_enclave *enclp = (struct keystone_ioctl_create_enclave *) arg;
 
+  if (filep->private_data != NULL) {
+    keystone_err("this fd already is associated with an enclave");
+    return -EPERM;
+  }
+
   enclave_t *enclave;
   enclave = create_enclave(enclp->min_pages);
 
@@ -27,6 +32,8 @@ int keystone_create_enclave(struct file *filep, unsigned long arg)
 
   /* allocate UID */
   enclp->eid = enclave_idr_alloc(enclave);
+  /* Set the owner to the current pid. */
+  enclave->owner = current->pid;
   
   filep->private_data = (void *) enclp->eid;
 
@@ -265,6 +272,12 @@ int __keystone_destroy_enclave(unsigned int ueid)
     keystone_err("invalid enclave id\n");
     return -EINVAL;
   }
+
+  if (enclave->owner != current->pid) {
+    keystone_err("you must be the owner to destroy the enclave\n");
+    return -EPERM;
+  }
+
   ret = SBI_CALL_1(SBI_SM_DESTROY_ENCLAVE, enclave->eid);
   if (ret) {
     keystone_err("fatal: cannot destroy enclave: SBI failed\n");
@@ -288,15 +301,13 @@ int keystone_resume_enclave(struct file *filep, unsigned long arg)
   enclave_t* enclave;
   enclave = get_enclave_by_id(ueid);
 
-  if (!enclave)
-  {
+  if (!enclave) {
     keystone_err("invalid enclave id\n");
     return -EINVAL;
   }
 
   ret = SBI_CALL_1(SBI_SM_RESUME_ENCLAVE, enclave->eid);
-  while (ret == ENCLAVE_INTERRUPTED)
-  {
+  while (ret == ENCLAVE_INTERRUPTED) {
     keystone_handle_interrupts();
     ret = SBI_CALL_1(SBI_SM_RESUME_ENCLAVE, enclave->eid);
   }
@@ -317,7 +328,6 @@ long keystone_ioctl(struct file *filep, unsigned int cmd, unsigned long arg)
 
   if (copy_from_user(data,(void __user *) arg, ioc_size))
     return -EFAULT;
-    
   switch (cmd) {
     case KEYSTONE_IOC_CREATE_ENCLAVE:
       ret = keystone_create_enclave(filep, (unsigned long) data);

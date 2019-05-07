@@ -25,6 +25,7 @@ static const struct file_operations keystone_fops = {
     .owner          = THIS_MODULE,
     .mmap           = keystone_mmap,
     .unlocked_ioctl = keystone_ioctl,
+    .open           = keystone_open,
     .release        = keystone_release
 };
 
@@ -62,6 +63,12 @@ int keystone_mmap(struct file* filp, struct vm_area_struct *vma)
       vma->vm_start,
       __pa(utm->ptr) >> PAGE_SHIFT,
       vsize, vma->vm_page_prot);
+  return 0;
+}
+
+int keystone_open(struct inode *inodep, struct file *filep)
+{
+  filep->private_data = NULL;
   return 0;
 }
 
